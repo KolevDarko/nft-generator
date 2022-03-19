@@ -1,7 +1,7 @@
 import os
 
 
-class SnailGapsController:
+class GapsFillController:
     def __init__(self, meta_dir, images_dir):
         self.meta_dir = meta_dir
         self.images_dir = images_dir
@@ -45,9 +45,9 @@ class SnailGapsController:
         full_dest = f'{self.images_dir}/{running_number}.png'
         os.rename(full_src, full_dest)
 
-META_LIST = ['0001.json','0002.json','0003.json','0004.json','0005.json','0006.json','0007.json','0008.json']
-IMG_LIST = ['0001.png','0003.png','0005.png','0006.png','0008.png',]
 
 if __name__ == '__main__':
-    ctrl = SnailGapsController('./snails/metadata', '/Users/darko/Downloads/images')
+    metadata_dir = '<dir with metadata files>'
+    images_dir = '<dir with images>'
+    ctrl = GapsFillController(metadata_dir, images_dir)
     ctrl.run()
