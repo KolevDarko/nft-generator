@@ -421,8 +421,91 @@ def cleanup_snails(limit=None):
                 break
 
 
+class GeneratorController:
+
+    def __init__(self, base_dir, img_dir, meta_dir, weights_map, traits_order, matching_traits=None):
+        self.base_dir = base_dir
+        self.img_dir = img_dir
+        self.meta_dir = meta_dir
+        self.weights_map = weights_map
+        self.traits_order = traits_order
+        self.matching_traits = matching_traits or {}
+
+    def generate_all_images(self, total_count, start=0):
+        i = start
+        while i < total_count:
+            result_img = None
+            metadata = {}
+            unique_name = ''
+            for trait_type in self.traits_order:
+                print(f'Generating image {i}');
+                category_id = self.get_random_category()
+                trait_val = self.gen_random_trait_by_category(category_id, trait_type)
+                trait_img = self.open_img(f'{self.base_dir}/{category_id}/{trait_type}/{trait_val}').convert('RGBA')
+                if not result_img:
+                    result_img = trait_img
+                    unique_name = trait_val
+                else:
+                    result_img = Image.alpha_composite(result_img, trait_img)
+                    unique_name += f'-{trait_val}'
+                metadata[trait_type] = trait_val
+            # todo check unique here
+            i += 1
+            image_name = f'{i}.png'
+            result_img.save(f'{self.img_dir}/{image_name}')
+            self.store_metadata(i, metadata)
+
+    def store_metadata(self, idx, metadata):
+        metadata_file = open(f'{self.meta_dir}/{idx}.json', 'w')
+        metadata_file.write(json.dumps(metadata))
+        metadata_file.close()
+
+    def gen_random_trait_by_category(self, category_id, trait_name):
+        trait_list = os.listdir(f'{self.base_dir}/{category_id}/{trait_name}')
+        random_trait_val = random.choice(trait_list)
+        return random_trait_val
+
+    def get_random_category(self):
+        categories = list(self.weights_map.keys())
+        weights = list(self.weights_map.values())
+        return random.choices(categories, weights)[0]
+
+    def compose_image(self, img_names):
+        result = self.open_img(img_names[0])
+        for img_name in img_names[1:]:
+            img2 = self.open_img(img_name)
+            result = Image.alpha_composite(result, img2)
+        return result
+
+    def gen_image(self, name_list, final_path):
+        final = self.compose_image(name_list)
+        final.save(final_path)
+
+    def open_img(self, full_path):
+        return Image.open(f'{full_path}')
+
+
 if __name__ == '__main__':
     # generate_one_original('DM - Red Devil')
     # create_combos_for_body('DM - Red Devil')
-    generate_complete_snails_once('/Users/darko/Documents/ALL BODIES NEW')
+    # generate_complete_snails_once('/Users/darko/Documents/ALL BODIES NEW')
     # generate_random_snails(8000, 1555)
+    # names = [
+    #     'background - blue.png',
+    #     'backhair - dark orange.png',
+    #     'name - Anna.png',
+    #     'earrings - blue stones.png',
+    #     'CLOTHES2 - colorful blouse.png',
+    #     'neckless - blue howlite.png',
+    #     'fronthair - dark orange.png',
+    #     'headwear - flower headband.png',
+    #     'glasses - popstar.png'
+    # ]
+    # ctrl.gen_image(names, './data/test/final.png')
+
+    ctrl = GeneratorController('./data/rarities-daydreaming', './data/results-img', './data/results-metadata',
+                               WEIGHT_MAP,
+                               ['background', 'backhair', 'name', 'earrings', 'clothes', 'necklaces', 'headwear',
+                                'glasses'],
+                               matching_traits={'backhair': 'fronthair'})
+    ctrl.generate_all_images(10)
