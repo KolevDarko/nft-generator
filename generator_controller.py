@@ -423,12 +423,14 @@ def cleanup_snails(limit=None):
 
 class GeneratorController:
 
-    def __init__(self, base_dir, img_dir, meta_dir, weights_map, traits_order, matching_traits=None):
+    def __init__(self, base_dir, img_dir, meta_dir, weights_map, traits_order,
+                 percent_appearance=None, matching_traits=None):
         self.base_dir = base_dir
         self.img_dir = img_dir
         self.meta_dir = meta_dir
         self.weights_map = weights_map
         self.traits_order = traits_order
+        self.percent_appearance = percent_appearance or {}
         self.matching_traits = matching_traits or {}
 
     def generate_all_images(self, total_count, start=0):
@@ -437,23 +439,48 @@ class GeneratorController:
             result_img = None
             metadata = {}
             unique_name = ''
+            print(f'Generating image {i}')
             for trait_type in self.traits_order:
-                print(f'Generating image {i}');
-                category_id = self.get_random_category()
-                trait_val = self.gen_random_trait_by_category(category_id, trait_type)
-                trait_img = self.open_img(f'{self.base_dir}/{category_id}/{trait_type}/{trait_val}').convert('RGBA')
+                print(f'Trait {trait_type}')
+                if trait_type in self.percent_appearance:
+                    if self.should_skip(trait_type):
+                        continue
+                if trait_type in self.matching_traits:
+                    category_id, trait_img, trait_val = self.pick_matching_trait(trait_type, metadata)
+                else:
+                    category_id = self.get_random_category()
+                    trait_val = self.gen_random_trait_by_category(category_id, trait_type)
+                    trait_img = self.open_img(f'{self.base_dir}/{category_id}/{trait_type}/{trait_val}').convert('RGBA')
                 if not result_img:
                     result_img = trait_img
                     unique_name = trait_val
                 else:
                     result_img = Image.alpha_composite(result_img, trait_img)
                     unique_name += f'-{trait_val}'
-                metadata[trait_type] = trait_val
+                metadata[trait_type] = {
+                    'value': trait_val,
+                    'category': category_id
+                }
             # todo check unique here
             i += 1
             image_name = f'{i}.png'
             result_img.save(f'{self.img_dir}/{image_name}')
             self.store_metadata(i, metadata)
+
+    def should_skip(self, trait_type):
+        trait_percentage = self.percent_appearance[trait_type]
+        random_perc = int(random.random() * 100)
+        return random_perc > trait_percentage
+
+    def pick_matching_trait(self, trait_type, metadata):
+        prev_trait_type = self.matching_traits[trait_type]
+        prev_trait = metadata[prev_trait_type]
+        category_id = prev_trait['category']
+        prev_trait_val = prev_trait['value']
+        trait_val = str(prev_trait_val).replace(prev_trait_type, trait_type)
+        trait_img_path = f'{self.base_dir}/{category_id}/{trait_type}/{trait_val}'
+        trait_img = self.open_img(trait_img_path)
+        return category_id, trait_img, trait_val
 
     def store_metadata(self, idx, metadata):
         metadata_file = open(f'{self.meta_dir}/{idx}.json', 'w')
@@ -486,26 +513,9 @@ class GeneratorController:
 
 
 if __name__ == '__main__':
-    # generate_one_original('DM - Red Devil')
-    # create_combos_for_body('DM - Red Devil')
-    # generate_complete_snails_once('/Users/darko/Documents/ALL BODIES NEW')
-    # generate_random_snails(8000, 1555)
-    # names = [
-    #     'background - blue.png',
-    #     'backhair - dark orange.png',
-    #     'name - Anna.png',
-    #     'earrings - blue stones.png',
-    #     'CLOTHES2 - colorful blouse.png',
-    #     'neckless - blue howlite.png',
-    #     'fronthair - dark orange.png',
-    #     'headwear - flower headband.png',
-    #     'glasses - popstar.png'
-    # ]
-    # ctrl.gen_image(names, './data/test/final.png')
-
     ctrl = GeneratorController('./data/rarities-daydreaming', './data/results-img', './data/results-metadata',
                                WEIGHT_MAP,
-                               ['background', 'backhair', 'name', 'earrings', 'clothes', 'necklaces', 'headwear',
-                                'glasses'],
-                               matching_traits={'backhair': 'fronthair'})
+                               ['background', 'backhair', 'name', 'earrings', 'clothes', 'necklaces', 'fronthair',
+                                'headwear', 'glasses'], matching_traits={'fronthair': 'backhair'},
+                               percent_appearance={'glasses': 50, 'headwear': 50, 'earrings': 65, 'necklace': 40})
     ctrl.generate_all_images(10)
