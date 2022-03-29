@@ -435,37 +435,70 @@ class GeneratorController:
 
     def generate_all_images(self, total_count, start=0):
         i = start
+        unique_names = set()
         while i < total_count:
             result_img = None
             metadata = {}
-            unique_name = ''
+            unique_name = None
             print(f'Generating image {i}')
+            has_necklace = False
             for trait_type in self.traits_order:
                 print(f'Trait {trait_type}')
                 if trait_type in self.percent_appearance:
                     if self.should_skip(trait_type):
                         continue
+                if trait_type == 'necklaces':
+                    has_necklace = True
                 if trait_type in self.matching_traits:
-                    category_id, trait_img, trait_val = self.pick_matching_trait(trait_type, metadata)
+                    category_id, trait_val = self.pick_matching_trait(trait_type, metadata)
                 else:
                     category_id = self.get_random_category()
                     trait_val = self.gen_random_trait_by_category(category_id, trait_type)
-                    trait_img = self.open_img(f'{self.base_dir}/{category_id}/{trait_type}/{trait_val}').convert('RGBA')
-                if not result_img:
-                    result_img = trait_img
+                if not unique_name:
                     unique_name = trait_val
                 else:
-                    result_img = Image.alpha_composite(result_img, trait_img)
                     unique_name += f'-{trait_val}'
                 metadata[trait_type] = {
                     'value': trait_val,
                     'category': category_id
                 }
-            # todo check unique here
-            i += 1
+            if unique_name in unique_names:
+                continue
+            else:
+                i += 1
+                unique_names.add(unique_name)
+            if has_necklace:
+                clothes = metadata['clothes']['value']
+                if 'CLOTHES2' in clothes:
+                    new_clothes1 = self.pick_necklace_clothes(metadata['clothes']['category'])
+                    metadata['clothes'] = {
+                        'value': new_clothes1,
+                        'category': metadata['clothes']['category']
+                    }
             image_name = f'{i}.png'
+            result_img = self.create_image(metadata)
             result_img.save(f'{self.img_dir}/{image_name}')
             self.store_metadata(i, metadata)
+
+    def pick_necklace_clothes(self, category):
+        trait_list = os.listdir(f'{self.base_dir}/{category}/clothes')
+        filtered_list = [el for el in trait_list if el.startswith('CLOTHES1')]
+        random_trait_val = random.choice(filtered_list)
+        return random_trait_val
+
+
+    def create_image(self, metadata):
+        result_image = None
+        for trait_type in self.traits_order:
+            if trait_type in metadata:
+                trait_val = metadata[trait_type]['value']
+                category = metadata[trait_type]['category']
+                trait_img = self.open_img(f'{self.base_dir}/{category}/{trait_type}/{trait_val}').convert('RGBA')
+                if result_image is None:
+                    result_image = trait_img
+                else:
+                    result_image = Image.alpha_composite(result_image, trait_img)
+        return result_image
 
     def should_skip(self, trait_type):
         trait_percentage = self.percent_appearance[trait_type]
@@ -478,9 +511,7 @@ class GeneratorController:
         category_id = prev_trait['category']
         prev_trait_val = prev_trait['value']
         trait_val = str(prev_trait_val).replace(prev_trait_type, trait_type)
-        trait_img_path = f'{self.base_dir}/{category_id}/{trait_type}/{trait_val}'
-        trait_img = self.open_img(trait_img_path)
-        return category_id, trait_img, trait_val
+        return category_id, trait_val
 
     def store_metadata(self, idx, metadata):
         metadata_file = open(f'{self.meta_dir}/{idx}.json', 'w')
@@ -517,5 +548,5 @@ if __name__ == '__main__':
                                WEIGHT_MAP,
                                ['background', 'backhair', 'name', 'earrings', 'clothes', 'necklaces', 'fronthair',
                                 'headwear', 'glasses'], matching_traits={'fronthair': 'backhair'},
-                               percent_appearance={'glasses': 50, 'headwear': 50, 'earrings': 65, 'necklace': 40})
-    ctrl.generate_all_images(10)
+                               percent_appearance={'glasses': 50, 'headwear': 50, 'earrings': 65, 'necklaces': 40})
+    ctrl.generate_all_images(20)
