@@ -420,24 +420,11 @@ def cleanup_snails(limit=None):
             if limit and i >= limit:
                 break
 
-
-class GeneratorController:
-
-    def __init__(self, base_dir, img_dir, meta_dir, weights_map, traits_order,
-                 percent_appearance=None, matching_traits=None):
-        self.base_dir = base_dir
-        self.img_dir = img_dir
-        self.meta_dir = meta_dir
-        self.weights_map = weights_map
-        self.traits_order = traits_order
-        self.percent_appearance = percent_appearance or {}
-        self.matching_traits = matching_traits or {}
-
     def generate_all_images(self, total_count, start=0):
         i = start
         unique_names = set()
         while i < start + total_count:
-            metadata = {}
+            attributes = {}
             unique_name = None
             print(f'Generating image {i}')
             result_img = None
@@ -453,7 +440,7 @@ class GeneratorController:
                     unique_name = trait_val
                 else:
                     unique_name += f'-{trait_val}'
-                metadata[trait_type] = trait_val
+                attributes[trait_type] = trait_val
             if unique_name in unique_names:
                 continue
             else:
@@ -461,11 +448,20 @@ class GeneratorController:
                 unique_names.add(unique_name)
             image_name = f'{i}.png'
             result_img.save(f'{self.img_dir}/{image_name}')
-            self.store_metadata(i, metadata)
+            self.store_metadata(i, attributes)
 
-    def store_metadata(self, idx, metadata):
+    def store_metadata(self, idx, attributes):
+        attrs_list = [{key: value} for key, value in attributes.items()]
+        nft_name = f'Girl #{idx}'
+        full_metadata = {
+            "description": "Daydreaming on the Blockchain.",
+            "external_url": "https://daydreaming.com",
+            "image": "{image-ipfs}",
+            "name": nft_name,
+            'attributes': attrs_list,
+        }
         metadata_file = open(f'{self.meta_dir}/{idx}.json', 'w')
-        metadata_file.write(json.dumps(metadata))
+        metadata_file.write(json.dumps(full_metadata))
         metadata_file.close()
 
     def gen_random_trait_by_category(self, category_id, trait_name):
