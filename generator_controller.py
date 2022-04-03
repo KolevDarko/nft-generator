@@ -420,6 +420,16 @@ def cleanup_snails(limit=None):
             if limit and i >= limit:
                 break
 
+
+class GeneratorController:
+
+    def __init__(self, base_dir, img_dir, meta_dir, weights_map, traits_order):
+        self.base_dir = base_dir
+        self.img_dir = img_dir
+        self.meta_dir = meta_dir
+        self.weights_map = weights_map
+        self.traits_order = traits_order
+
     def generate_all_images(self, total_count, start=0):
         i = start
         unique_names = set()
